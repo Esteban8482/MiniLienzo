@@ -22,7 +22,9 @@ class Button:
         self.text = text
         if self.text:
              pygame.font.init() # Asegurar que font esté inicializado
-             self.font = pygame.font.SysFont(None, 24) # Fuente simple
+             # Ajustar tamaño de fuente por tipo de botón
+             font_size = 18 if action == 'clear' else 24
+             self.font = pygame.font.SysFont(None, font_size) # Fuente con tamaño ajustado
              self.text_surf = self.font.render(text, True, BLACK)
              self.text_rect = self.text_surf.get_rect(center=self.rect.center)
 
@@ -56,11 +58,33 @@ def draw_line_icon(surface, rect):
                      rect.bottomright - pygame.Vector2(5, 5), 2)
 
 def draw_curve_icon(surface, rect):
-    # Simple curva cuadrática como placeholder
-    points = [rect.topleft + pygame.Vector2(5, rect.height - 5),
-              rect.midtop + pygame.Vector2(0, 5),
-              rect.bottomright - pygame.Vector2(5, 5)]
-    pygame.draw.lines(surface, BLACK, False, points, 2)
+    # Dibujamos una curva más realista tipo Bézier usando varios puntos
+    # Puntos de control para una curva que se ve más suave
+    p0 = rect.topleft + pygame.Vector2(5, rect.height * 0.7)
+    p1 = rect.topleft + pygame.Vector2(rect.width * 0.3, 5)
+    p2 = rect.topright + pygame.Vector2(-rect.width * 0.3, rect.height - 5)
+    p3 = rect.bottomright + pygame.Vector2(-5, -rect.height * 0.7)
+    
+    # Dibujamos aproximación de curva Bézier con varios segmentos
+    points = []
+    steps = 12
+    for i in range(steps + 1):
+        t = i / steps
+        # Fórmula de Bézier cúbica
+        inv_t = 1 - t
+        x = (inv_t**3 * p0[0] + 
+             3 * inv_t**2 * t * p1[0] + 
+             3 * inv_t * t**2 * p2[0] + 
+             t**3 * p3[0])
+        y = (inv_t**3 * p0[1] + 
+             3 * inv_t**2 * t * p1[1] + 
+             3 * inv_t * t**2 * p2[1] + 
+             t**3 * p3[1])
+        points.append((int(x), int(y)))
+    
+    # Dibujar la curva suave
+    if len(points) > 1:
+        pygame.draw.lines(surface, BLACK, False, points, 2)
 
 def draw_rect_icon(surface, rect):
     icon_rect = rect.inflate(-10, -10)
@@ -68,6 +92,11 @@ def draw_rect_icon(surface, rect):
 
 def draw_circle_icon(surface, rect):
     pygame.draw.circle(surface, BLACK, rect.center, rect.width // 2 - 5, 2)
+
+def draw_ellipse_icon(surface, rect):
+    # Dibujamos una elipse dentro del rectángulo del botón
+    icon_rect = rect.inflate(-10, -16)  # Ajustar más la altura que el ancho
+    pygame.draw.ellipse(surface, BLACK, icon_rect, 2)
 
 def draw_triangle_icon(surface, rect):
     points = [rect.midtop + pygame.Vector2(0, 5),
@@ -129,19 +158,17 @@ class ToolPanel(Panel):
             ('circle', draw_circle_icon),
             ('triangle', draw_triangle_icon),
             ('polygon', draw_polygon_icon),
-            ('ellipse', None), # Añadir elipse, sin icono por ahora
+            ('ellipse', draw_ellipse_icon),  # Ahora con su propio icono
         ]
 
         for tool_name, icon_func in tools:
-            # Placeholder simple para elipse si no hay icono
-            text = tool_name.capitalize() if not icon_func and tool_name == 'ellipse' else None
+            # Ya no necesitamos texto para elipse porque tiene icono
             button = Button(self.rect.x + padding,
                             current_y,
                             button_size, button_size,
                             WHITE, # Fondo blanco para botones de icono
                             icon_func=icon_func,
-                            action=tool_name,
-                            text=text)
+                            action=tool_name)
             self.buttons.append(button)
             current_y += button_size + 5
 
@@ -305,4 +332,63 @@ class AlgorithmCirclePanel(Panel):
             for btn in self.buttons:
                 btn.is_selected = (btn.action == action)
             return action
+        return None
+
+# --- Panel para seleccionar lados del polígono ---
+class PolygonSidesPanel(Panel):
+    def __init__(self, x, y, width, height, color):
+        super().__init__(x, y, width, height, color)
+        self._setup_buttons()
+        # Inicialmente seleccionar 5 lados
+        self.selected_sides = 5
+        
+    def _setup_buttons(self):
+        button_width = self.rect.width - 10  # Un poco de margen
+        button_height = 30
+        y_offset = 10
+        
+        # Título del panel
+        pygame.font.init()
+        self.font = pygame.font.SysFont(None, 24)
+        self.title_surf = self.font.render("Lados del Polígono", True, BLACK)
+        self.title_rect = self.title_surf.get_rect(
+            center=(self.rect.x + self.rect.width // 2, self.rect.y + y_offset)
+        )
+        
+        y_offset += 30  # Espacio para el título
+        
+        # Opciones de lados
+        sides_options = [
+            (3, "3 lados"),
+            (4, "4 lados"),
+            (5, "5 lados"),
+            (6, "6 lados"),
+            (8, "8 lados")
+        ]
+        
+        for i, (sides, text) in enumerate(sides_options):
+            button = Button(self.rect.x + 5,  # 5px de margen
+                            self.rect.y + y_offset + i * (button_height + 5),
+                            button_width, button_height,
+                            color=LIGHT_GRAY,
+                            action=str(sides),  # Convertir a string para consistencia
+                            text=text)
+            if sides == 5:  # 5 lados seleccionado por defecto
+                button.is_selected = True
+            self.buttons.append(button)
+    
+    def draw(self, surface):
+        super().draw(surface)
+        # Dibujar el título
+        surface.blit(self.title_surf, self.title_rect)
+        
+    def handle_event(self, event):
+        action = super().handle_event(event)
+        if action and action.isdigit():
+            sides = int(action)
+            self.selected_sides = sides
+            # Actualizar botones seleccionados
+            for btn in self.buttons:
+                btn.is_selected = (btn.action == action)
+            return sides
         return None

@@ -49,12 +49,15 @@ color_panel = ui.ColorPanel(SCREEN_WIDTH - RIGHT_PANEL_WIDTH, 0, RIGHT_PANEL_WID
 # Paneles para algoritmos
 algorithm_line_panel = ui.AlgorithmPanel(LEFT_PANEL_WIDTH, 0, CANVAS_WIDTH, ALGORITHM_PANEL_HEIGHT, LIGHT_GRAY)
 algorithm_circle_panel = ui.AlgorithmCirclePanel(LEFT_PANEL_WIDTH, 0, CANVAS_WIDTH, ALGORITHM_PANEL_HEIGHT, LIGHT_GRAY)
+# Panel para seleccionar lados del polígono
+polygon_sides_panel = ui.PolygonSidesPanel(LEFT_PANEL_WIDTH, 0, CANVAS_WIDTH, ALGORITHM_PANEL_HEIGHT, LIGHT_GRAY)
 
 # --- Estado de la aplicación ---
 selected_tool = None
 selected_color = BLACK # Color inicial por defecto
 selected_line_algorithm = 'pygame' # Algoritmo inicial por defecto para líneas
 selected_circle_algorithm = 'pygame' # Algoritmo inicial por defecto para círculos
+selected_polygon_sides = 5 # Número de lados por defecto para polígonos
 drawing = False
 start_pos = None
 current_mouse_pos = None # Posición actual relativa al canvas
@@ -118,6 +121,9 @@ while running:
                 elif selected_tool == 'circle':
                     new_show_algorithm_panel = True
                     new_algorithm_panel = 'circle'
+                elif selected_tool == 'polygon':
+                    new_show_algorithm_panel = True
+                    new_algorithm_panel = 'polygon'
                 
                 # Recrear superficies si cambió la visibilidad
                 if new_show_algorithm_panel != show_algorithm_panel or current_algorithm_panel != new_algorithm_panel:
@@ -144,6 +150,11 @@ while running:
                 if algorithm_action:
                     selected_circle_algorithm = algorithm_action
                     print(f"Algoritmo de círculo seleccionado: {selected_circle_algorithm}")
+            elif current_algorithm_panel == 'polygon':
+                sides_action = polygon_sides_panel.handle_event(event)
+                if sides_action:
+                    selected_polygon_sides = sides_action
+                    print(f"Número de lados del polígono seleccionado: {selected_polygon_sides}")
 
         # Eventos del Lienzo (Canvas)
         if is_mouse_on_canvas:
@@ -166,8 +177,10 @@ while running:
                             new_shape = fig.BezierCurve(points, selected_color, width=2)
                             drawn_shapes.append(new_shape)
                             points = [] # Resetear para la siguiente curva
-                        # Polígono necesitaría una forma de finalizar (doble click, tecla Enter?)
-                        # Por ahora no se finaliza automáticamente.
+                        elif selected_tool == 'polygon' and len(points) == selected_polygon_sides:
+                            new_shape = fig.Polygon(points, selected_color, width=2)
+                            drawn_shapes.append(new_shape)
+                            points = [] # Resetear para el siguiente polígono
 
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1: # Botón izquierdo
@@ -212,8 +225,8 @@ while running:
             temp_shape.draw(preview_surface) # Dibujar en la superficie de preview
     
     # --- Dibujar puntos de referencia para figuras multi-punto ---
-    # Mostrar los puntos acumulados para triángulo o curva Bézier
-    if selected_tool in ['triangle', 'curve'] and len(points) > 0:
+    # Mostrar los puntos acumulados para triángulo, polígono o curva Bézier
+    if selected_tool in ['triangle', 'curve', 'polygon'] and len(points) > 0:
         # Dibujar puntos acumulados
         for point in points:
             # Dibujar un círculo en cada punto con color semitransparente
@@ -249,6 +262,25 @@ while running:
                 # Conectar el último punto con el primero si hay 3 puntos
                 if len(points) == 3:
                     pygame.draw.line(preview_surface, selected_color, points[2], points[0], 2)
+        
+        # Para polígono, mostrar perímetro parcial o completo
+        if selected_tool == 'polygon':
+            if len(points) >= 2:
+                # Dibujar líneas entre los puntos existentes
+                for i in range(len(points)-1):
+                    pygame.draw.line(preview_surface, selected_color, points[i], points[i+1], 2)
+                
+                # Si ya tenemos todos los puntos, o al menos 3, cerramos el polígono
+                if len(points) == selected_polygon_sides or (len(points) >= 3 and len(points) < selected_polygon_sides):
+                    pygame.draw.line(preview_surface, selected_color, points[-1], points[0], 2)
+                
+                # Mostrar el contador actual de puntos y el objetivo
+                count_text = f"Punto {len(points)} de {selected_polygon_sides}"
+                count_font = pygame.font.SysFont(None, 18)
+                count_surf = count_font.render(count_text, True, BLACK)
+                # Ubicar en la esquina superior derecha de la pantalla
+                count_rect = count_surf.get_rect(topright=(CANVAS_WIDTH - 10, 10))
+                preview_surface.blit(count_surf, count_rect)
 
     # --- Lógica de dibujo ----
     # 1. Limpiar canvas permanente (siempre se redibuja todo)
@@ -275,6 +307,8 @@ while running:
             algorithm_line_panel.draw(screen)
         elif current_algorithm_panel == 'circle':
             algorithm_circle_panel.draw(screen)
+        elif current_algorithm_panel == 'polygon':
+            polygon_sides_panel.draw(screen)
 
     # --- Actualizar la pantalla ---
     pygame.display.flip()
