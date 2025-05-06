@@ -52,6 +52,9 @@ current_mouse_pos = None # Posición actual relativa al canvas
 # Para figuras de múltiples puntos (a implementar)
 points = []
 
+# Lista para almacenar las figuras dibujadas permanentemente
+drawn_shapes = []
+
 # --- Bucle principal ---
 running = True
 while running:
@@ -77,11 +80,14 @@ while running:
         tool_action = tool_panel.handle_event(event)
         if tool_action:
             if tool_action == 'clear':
-                canvas_surface.fill(WHITE) # Limpiar lienzo
-                points = [] # Resetear puntos para polígono/curva
+                drawn_shapes = [] # Limpiar lista de figuras
+                points = []
+                # No es necesario limpiar canvas_surface aquí, se redibuja abajo
             else:
                 selected_tool = tool_action
                 points = [] # Resetear puntos al cambiar de herramienta
+                drawing = False # Cancelar cualquier dibujo en progreso
+                start_pos = None
                 print(f"Herramienta seleccionada: {selected_tool}") # Para depuración
 
         color_action = color_panel.handle_event(event)
@@ -101,25 +107,35 @@ while running:
                     elif selected_tool in ['triangle', 'polygon', 'curve']:
                         points.append(canvas_pos)
                         print(f"Punto {len(points)} añadido en {canvas_pos} para {selected_tool}")
-                        # Dibujar punto/feedback en canvas permanente? O preview?
-                        # Por ahora, solo almacenamos
+                        # --- Lógica para completar figuras multi-puntos ---
+                        if selected_tool == 'triangle' and len(points) == 3:
+                            new_shape = fig.Triangle(points, selected_color, width=2)
+                            drawn_shapes.append(new_shape)
+                            points = [] # Resetear para el siguiente triángulo
+                        elif selected_tool == 'curve' and len(points) == 4:
+                            new_shape = fig.BezierCurve(points, selected_color, width=2)
+                            drawn_shapes.append(new_shape)
+                            points = [] # Resetear para la siguiente curva
+                        # Polígono necesitaría una forma de finalizar (doble click, tecla Enter?)
+                        # Por ahora no se finaliza automáticamente.
 
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1: # Botón izquierdo
                     if drawing and selected_tool and start_pos:
                         end_pos = canvas_pos
-                        # Dibujar figura final en canvas_surface
+                        new_shape = None
+                        # Crear la instancia de la figura apropiada
                         if selected_tool == 'line':
-                            fig.draw_line(canvas_surface, selected_color, start_pos, end_pos, width=2)
+                            new_shape = fig.Line(start_pos, end_pos, selected_color, width=2)
                         elif selected_tool == 'rectangle':
-                            rect = fig.get_rect_from_points(start_pos, end_pos)
-                            fig.draw_rectangle(canvas_surface, selected_color, rect, width=2)
+                            new_shape = fig.Rectangle.from_points(start_pos, end_pos, selected_color, width=2)
                         elif selected_tool == 'circle':
-                            center, radius = fig.get_circle_params_from_points(start_pos, end_pos)
-                            fig.draw_circle(canvas_surface, selected_color, center, radius, width=2)
+                            new_shape = fig.Circle.from_points(start_pos, end_pos, selected_color, width=2)
                         elif selected_tool == 'ellipse':
-                             rect = fig.get_rect_from_points(start_pos, end_pos)
-                             fig.draw_ellipse(canvas_surface, selected_color, rect, width=2)
+                             new_shape = fig.Ellipse.from_points(start_pos, end_pos, selected_color, width=2)
+
+                        if new_shape:
+                            drawn_shapes.append(new_shape)
 
                     # Resetear estado de dibujo
                     drawing = False
@@ -130,26 +146,36 @@ while running:
 
     # --- Lógica de Previsualización (si estamos dibujando) ---
     if drawing and selected_tool and start_pos and current_mouse_pos:
-        preview_color = selected_color + (150,) # Añadir alpha para transparencia
+        preview_color = selected_color # Usar color normal para preview ahora que es temporal
+        temp_shape = None
 
         if selected_tool == 'line':
-            fig.draw_line(preview_surface, preview_color, start_pos, current_mouse_pos, width=2)
+            temp_shape = fig.Line(start_pos, current_mouse_pos, preview_color, width=2)
         elif selected_tool == 'rectangle':
-            rect = fig.get_rect_from_points(start_pos, current_mouse_pos)
-            fig.draw_rectangle(preview_surface, preview_color, rect, width=2)
+            temp_shape = fig.Rectangle.from_points(start_pos, current_mouse_pos, preview_color, width=2)
         elif selected_tool == 'circle':
-            center, radius = fig.get_circle_params_from_points(start_pos, current_mouse_pos)
-            fig.draw_circle(preview_surface, preview_color, center, radius, width=2)
+            temp_shape = fig.Circle.from_points(start_pos, current_mouse_pos, preview_color, width=2)
         elif selected_tool == 'ellipse':
-             rect = fig.get_rect_from_points(start_pos, current_mouse_pos)
-             fig.draw_ellipse(preview_surface, preview_color, rect, width=2)
+             temp_shape = fig.Ellipse.from_points(start_pos, current_mouse_pos, preview_color, width=2)
+
+        if temp_shape:
+            temp_shape.draw(preview_surface) # Dibujar en la superficie de preview
 
     # --- Lógica de dibujo ----
-    # 1. Dibujar el lienzo permanente
+    # 1. Limpiar canvas permanente (siempre se redibuja todo)
+    canvas_surface.fill(WHITE)
+
+    # 2. Dibujar todas las figuras permanentes guardadas
+    for shape in drawn_shapes:
+        shape.draw(canvas_surface)
+
+    # 3. Dibujar el canvas actualizado en la pantalla
     screen.blit(canvas_surface, (LEFT_PANEL_WIDTH, 0))
-    # 2. Dibujar la previsualización sobre el lienzo
+
+    # 4. Dibujar la previsualización sobre el canvas
     screen.blit(preview_surface, (LEFT_PANEL_WIDTH, 0))
-    # 3. Dibujar los paneles de UI encima de todo
+
+    # 5. Dibujar los paneles de UI encima de todo
     tool_panel.draw(screen)
     color_panel.draw(screen)
 
