@@ -60,9 +60,9 @@ start_pos = None
 current_mouse_pos = None # Posición actual relativa al canvas
 show_algorithm_panel = False # Inicialmente oculto
 current_algorithm_panel = None # Panel de algoritmos actualmente visible
-
-# Para figuras de múltiples puntos (a implementar)
-points = []
+# Para marcar puntos en figuras multi-punto
+points = [] 
+point_radius = 5 # Radio de los puntos de referencia
 
 # Lista para almacenar las figuras dibujadas permanentemente
 drawn_shapes = []
@@ -210,6 +210,45 @@ while running:
 
         if temp_shape:
             temp_shape.draw(preview_surface) # Dibujar en la superficie de preview
+    
+    # --- Dibujar puntos de referencia para figuras multi-punto ---
+    # Mostrar los puntos acumulados para triángulo o curva Bézier
+    if selected_tool in ['triangle', 'curve'] and len(points) > 0:
+        # Dibujar puntos acumulados
+        for point in points:
+            # Dibujar un círculo en cada punto con color semitransparente
+            temp_surface = pygame.Surface((point_radius*2+1, point_radius*2+1), pygame.SRCALPHA)
+            pygame.draw.circle(temp_surface, (*selected_color, 200), (point_radius, point_radius), point_radius)
+            preview_surface.blit(temp_surface, (point[0]-point_radius, point[1]-point_radius))
+            
+            # Añadir un pequeño número para indicar el orden
+            font = pygame.font.SysFont(None, 20)
+            text = font.render(str(points.index(point)+1), True, WHITE)
+            text_rect = text.get_rect(center=point)
+            preview_surface.blit(text, text_rect)
+            
+        # Para curva Bézier, mostrar líneas guía entre puntos si hay al menos 2
+        if selected_tool == 'curve' and len(points) >= 2:
+            # Dibujar líneas guía con color más claro y semitransparente
+            guide_color = (min(selected_color[0] + 100, 255), 
+                          min(selected_color[1] + 100, 255), 
+                          min(selected_color[2] + 100, 255), 150)
+            
+            # Conectar los puntos con líneas guía
+            if len(points) >= 2:
+                for i in range(len(points)-1):
+                    pygame.draw.line(preview_surface, guide_color, points[i], points[i+1], 1)
+            
+        # Para triángulo, mostrar perímetro parcial o completo
+        if selected_tool == 'triangle':
+            if len(points) >= 2:
+                # Dibujar líneas entre los puntos existentes
+                for i in range(len(points)-1):
+                    pygame.draw.line(preview_surface, selected_color, points[i], points[i+1], 2)
+                
+                # Conectar el último punto con el primero si hay 3 puntos
+                if len(points) == 3:
+                    pygame.draw.line(preview_surface, selected_color, points[2], points[0], 2)
 
     # --- Lógica de dibujo ----
     # 1. Limpiar canvas permanente (siempre se redibuja todo)
