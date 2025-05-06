@@ -1,9 +1,16 @@
+"""
+Módulo de interfaz de usuario para el graficador interactivo
+-----------------------------------------------------------
+Implementa los componentes de la interfaz gráfica, incluyendo paneles, botones
+y funciones para dibujar iconos. Gestiona la interacción del usuario con 
+las herramientas y configuraciones del graficador.
+"""
 import pygame
 
-# --- Colores (podrían importarse o definirse centralmente) ---
+# Definición de colores
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-GRAY = (128, 128, 128) # Un gris más oscuro para iconos/bordes
+GRAY = (128, 128, 128)
 LIGHT_GRAY = (220, 220, 220)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
@@ -11,66 +18,83 @@ BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 ORANGE = (255, 165, 0)
 
-# --- Clase Botón (simple) ---
 class Button:
+    """
+    Implementa un botón interactivo con soporte para iconos o texto.
+    
+    Attributes:
+        rect: Rectángulo que define la posición y tamaño del botón
+        color: Color de fondo del botón
+        icon_func: Función que dibuja el icono del botón
+        action: Identificador de la acción asociada al botón
+        is_selected: Indica si el botón está seleccionado
+        text: Texto a mostrar en el botón (alternativa a iconos)
+    """
     def __init__(self, x, y, width, height, color, icon_func=None, action=None, text=None):
         self.rect = pygame.Rect(x, y, width, height)
-        self.color = color # Color de fondo o representativo (para colores)
-        self.icon_func = icon_func # Función que dibuja el icono
-        self.action = action # Identificador de la acción (e.g., 'line', 'color_red')
-        self.is_selected = False # Para resaltar el botón seleccionado
+        self.color = color
+        self.icon_func = icon_func
+        self.action = action
+        self.is_selected = False
         self.text = text
         if self.text:
-             pygame.font.init() # Asegurar que font esté inicializado
-             # Ajustar tamaño de fuente por tipo de botón
+             pygame.font.init()
              font_size = 18 if action == 'clear' else 24
-             self.font = pygame.font.SysFont(None, font_size) # Fuente con tamaño ajustado
+             self.font = pygame.font.SysFont(None, font_size)
              self.text_surf = self.font.render(text, True, BLACK)
              self.text_rect = self.text_surf.get_rect(center=self.rect.center)
 
-
     def draw(self, surface):
-        # Dibuja el fondo del botón
+        """
+        Dibuja el botón en la superficie especificada.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el botón
+        """
         pygame.draw.rect(surface, self.color, self.rect)
-        # Dibuja el borde (resaltado si está seleccionado)
-        # No resaltar botones de acción como 'clear'
+        
         border_color = BLACK if self.is_selected and self.action not in ['clear'] else GRAY
-        pygame.draw.rect(surface, border_color, self.rect, 2) # Borde de 2 píxeles
+        pygame.draw.rect(surface, border_color, self.rect, 2)
 
-        # Dibuja el icono si existe una función para ello
         if self.icon_func:
             self.icon_func(surface, self.rect)
         elif self.text:
             surface.blit(self.text_surf, self.text_rect)
 
     def handle_event(self, event):
+        """
+        Procesa eventos de usuario relacionados con el botón.
+        
+        Args:
+            event: Evento pygame a procesar
+            
+        Returns:
+            El identificador de acción si el botón fue clickeado, None en caso contrario
+        """
         if event.type == pygame.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos):
-                # No cambiar seleccion para botones de acción directa
                 if self.action not in ['clear']:
                     self.is_selected = True
                 return self.action
         return None
 
-# --- Funciones para dibujar iconos simples (marcadores de posición) ---
+# Funciones para dibujar iconos
 def draw_line_icon(surface, rect):
+    """Dibuja un icono de línea."""
     pygame.draw.line(surface, BLACK, rect.topleft + pygame.Vector2(5, 5),
                      rect.bottomright - pygame.Vector2(5, 5), 2)
 
 def draw_curve_icon(surface, rect):
-    # Dibujamos una curva más realista tipo Bézier usando varios puntos
-    # Puntos de control para una curva que se ve más suave
+    """Dibuja un icono de curva Bézier."""
     p0 = rect.topleft + pygame.Vector2(5, rect.height * 0.7)
     p1 = rect.topleft + pygame.Vector2(rect.width * 0.3, 5)
     p2 = rect.topright + pygame.Vector2(-rect.width * 0.3, rect.height - 5)
     p3 = rect.bottomright + pygame.Vector2(-5, -rect.height * 0.7)
     
-    # Dibujamos aproximación de curva Bézier con varios segmentos
     points = []
     steps = 12
     for i in range(steps + 1):
         t = i / steps
-        # Fórmula de Bézier cúbica
         inv_t = 1 - t
         x = (inv_t**3 * p0[0] + 
              3 * inv_t**2 * t * p1[0] + 
@@ -82,29 +106,32 @@ def draw_curve_icon(surface, rect):
              t**3 * p3[1])
         points.append((int(x), int(y)))
     
-    # Dibujar la curva suave
     if len(points) > 1:
         pygame.draw.lines(surface, BLACK, False, points, 2)
 
 def draw_rect_icon(surface, rect):
+    """Dibuja un icono de rectángulo."""
     icon_rect = rect.inflate(-10, -10)
     pygame.draw.rect(surface, BLACK, icon_rect, 2)
 
 def draw_circle_icon(surface, rect):
+    """Dibuja un icono de círculo."""
     pygame.draw.circle(surface, BLACK, rect.center, rect.width // 2 - 5, 2)
 
 def draw_ellipse_icon(surface, rect):
-    # Dibujamos una elipse dentro del rectángulo del botón
-    icon_rect = rect.inflate(-10, -16)  # Ajustar más la altura que el ancho
+    """Dibuja un icono de elipse."""
+    icon_rect = rect.inflate(-10, -16)
     pygame.draw.ellipse(surface, BLACK, icon_rect, 2)
 
 def draw_triangle_icon(surface, rect):
+    """Dibuja un icono de triángulo."""
     points = [rect.midtop + pygame.Vector2(0, 5),
               rect.bottomleft + pygame.Vector2(5, -5),
               rect.bottomright + pygame.Vector2(-5, -5)]
     pygame.draw.polygon(surface, BLACK, points, 2)
 
-def draw_polygon_icon(surface, rect): # Placeholder simple (pentagono)
+def draw_polygon_icon(surface, rect):
+    """Dibuja un icono de polígono (pentágono)."""
     points = [rect.midtop + pygame.Vector2(0, 5),
               rect.topright + pygame.Vector2(-5, 15),
               rect.bottomright + pygame.Vector2(-15, -5),
@@ -112,40 +139,61 @@ def draw_polygon_icon(surface, rect): # Placeholder simple (pentagono)
               rect.topleft + pygame.Vector2(5, 15)]
     pygame.draw.polygon(surface, BLACK, points, 2)
 
-# --- Clase Panel Base (opcional, por si hay lógica común) ---
 class Panel:
+    """
+    Clase base para todos los paneles de la interfaz.
+    
+    Attributes:
+        rect: Rectángulo que define la posición y tamaño del panel
+        color: Color de fondo del panel
+        buttons: Lista de botones contenidos en el panel
+    """
     def __init__(self, x, y, width, height, color):
         self.rect = pygame.Rect(x, y, width, height)
         self.color = color
         self.buttons = []
 
     def draw(self, surface):
+        """
+        Dibuja el panel y sus botones en la superficie especificada.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el panel
+        """
         pygame.draw.rect(surface, self.color, self.rect)
         for button in self.buttons:
             button.draw(surface)
 
     def handle_event(self, event):
+        """
+        Procesa eventos de usuario relacionados con los botones del panel.
+        
+        Args:
+            event: Evento pygame a procesar
+            
+        Returns:
+            El identificador de acción del botón clickeado, None si ninguno fue clickeado
+        """
         for button in self.buttons:
             action = button.handle_event(event)
             if action:
-                 # Deseleccionar otros botones y seleccionar el actual (si aplica)
-                 # Solo deseleccionar si el boton clickeado es seleccionable
-                 if hasattr(button, 'is_selected') and button.action not in ['clear']:
+                if hasattr(button, 'is_selected') and button.action not in ['clear']:
                     for b in self.buttons:
                         if hasattr(b, 'is_selected'): b.is_selected = False
                     button.is_selected = True
-                 # Para botones de acción directa como 'clear', no cambiamos la selección
-                 # pero sí devolvemos la acción.
-                 return action
+                return action
         return None
 
-# --- Panel de Herramientas --- Add Clear Button
 class ToolPanel(Panel):
+    """
+    Panel de herramientas de dibujo (línea, círculo, rectángulo, etc.)
+    """
     def __init__(self, x, y, width, height, color):
         super().__init__(x, y, width, height, color)
         self._setup_buttons()
 
     def _setup_buttons(self):
+        """Configura los botones de herramientas en el panel."""
         button_size = 40
         padding = (self.rect.width - button_size) // 2
         y_offset = 10
@@ -158,37 +206,41 @@ class ToolPanel(Panel):
             ('circle', draw_circle_icon),
             ('triangle', draw_triangle_icon),
             ('polygon', draw_polygon_icon),
-            ('ellipse', draw_ellipse_icon),  # Ahora con su propio icono
+            ('ellipse', draw_ellipse_icon),
         ]
 
         for tool_name, icon_func in tools:
-            # Ya no necesitamos texto para elipse porque tiene icono
             button = Button(self.rect.x + padding,
                             current_y,
                             button_size, button_size,
-                            WHITE, # Fondo blanco para botones de icono
+                            WHITE,
                             icon_func=icon_func,
                             action=tool_name)
             self.buttons.append(button)
             current_y += button_size + 5
 
-        # Botón de Limpiar al final
+        # Botón de limpiar
         clear_button = Button(self.rect.x + padding,
-                              current_y + 10, # Un poco más de espacio
+                              current_y + 10,
                               button_size, button_size,
-                              LIGHT_GRAY, # Color diferente
+                              LIGHT_GRAY,
                               action='clear',
                               text='Limpiar')
         self.buttons.append(clear_button)
 
-
-# --- Panel de Colores ---
 class ColorPanel(Panel):
+    """
+    Panel de selección de colores.
+    
+    Attributes:
+        color_map: Diccionario que mapea identificadores de colores a valores RGB
+    """
     def __init__(self, x, y, width, height, color):
         super().__init__(x, y, width, height, color)
         self._setup_buttons()
 
     def _setup_buttons(self):
+        """Configura los botones de colores en el panel."""
         button_size = 40
         padding = (self.rect.width - button_size) // 2
         y_offset = 10
@@ -204,37 +256,49 @@ class ColorPanel(Panel):
             (BLACK, 'color_black')
         ]
 
-        # Mapeo de action string a valor RGB real
         self.color_map = {name: rgb for rgb, name in colors}
 
         for i, (color_val, action_name) in enumerate(colors):
             button = Button(self.rect.x + padding,
                             self.rect.y + y_offset + i * (button_size + 5),
                             button_size, button_size,
-                            color=color_val, # El color del botón es el color a seleccionar
+                            color=color_val,
                             action=action_name)
             self.buttons.append(button)
 
-    # Sobreescribir handle_event para devolver el valor RGB
     def handle_event(self, event):
+        """
+        Procesa eventos y devuelve el valor RGB del color seleccionado.
+        
+        Args:
+            event: Evento pygame a procesar
+            
+        Returns:
+            Valor RGB del color seleccionado o None
+        """
         action = super().handle_event(event)
         if action and action in self.color_map:
-             # Seleccionar el botón de color clickeado
              for btn in self.buttons:
                  btn.is_selected = (btn.action == action)
-             return self.color_map[action] # Devolver el color RGB
+             return self.color_map[action]
         return None
 
-# --- Panel de Algoritmos de Línea ---
 class AlgorithmPanel(Panel):
+    """
+    Panel para seleccionar algoritmos de dibujo de líneas.
+    
+    Attributes:
+        selected_algorithm: Algoritmo actualmente seleccionado
+        title_surf, title_rect: Superficie y posición del título del panel
+    """
     def __init__(self, x, y, width, height, color):
         super().__init__(x, y, width, height, color)
         self._setup_buttons()
-        # Inicialmente seleccionar pygame como algoritmo predeterminado
         self.selected_algorithm = 'pygame'
 
     def _setup_buttons(self):
-        button_width = self.rect.width - 10  # Un poco de margen
+        """Configura los botones de algoritmos en el panel."""
+        button_width = self.rect.width - 10
         button_height = 30
         y_offset = 10
 
@@ -246,7 +310,7 @@ class AlgorithmPanel(Panel):
             center=(self.rect.x + self.rect.width // 2, self.rect.y + y_offset)
         )
         
-        y_offset += 30  # Espacio para el título
+        y_offset += 30
 
         algorithms = [
             ('pygame', 'Pygame'),
@@ -255,41 +319,60 @@ class AlgorithmPanel(Panel):
         ]
 
         for i, (algo_id, algo_name) in enumerate(algorithms):
-            button = Button(self.rect.x + 5,  # 5px de margen
+            button = Button(self.rect.x + 5,
                             self.rect.y + y_offset + i * (button_height + 5),
                             button_width, button_height,
                             color=LIGHT_GRAY,
                             action=algo_id,
                             text=algo_name)
             if algo_id == 'pygame':
-                button.is_selected = True  # Pygame seleccionado por defecto
+                button.is_selected = True
             self.buttons.append(button)
             
     def draw(self, surface):
+        """
+        Dibuja el panel, sus botones y el título.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el panel
+        """
         super().draw(surface)
-        # Dibujar el título
         surface.blit(self.title_surf, self.title_rect)
 
     def handle_event(self, event):
+        """
+        Procesa eventos y actualiza el algoritmo seleccionado.
+        
+        Args:
+            event: Evento pygame a procesar
+            
+        Returns:
+            Identificador del algoritmo seleccionado o None
+        """
         action = super().handle_event(event)
         if action in ['pygame', 'dda', 'bresenham']:
             self.selected_algorithm = action
-            # Actualizar botones seleccionados
             for btn in self.buttons:
                 btn.is_selected = (btn.action == action)
             return action
         return None
 
-# --- Panel de Algoritmos de Círculo ---
 class AlgorithmCirclePanel(Panel):
+    """
+    Panel para seleccionar algoritmos de dibujo de círculos.
+    
+    Attributes:
+        selected_algorithm: Algoritmo actualmente seleccionado
+        title_surf, title_rect: Superficie y posición del título del panel
+    """
     def __init__(self, x, y, width, height, color):
         super().__init__(x, y, width, height, color)
         self._setup_buttons()
-        # Inicialmente seleccionar pygame como algoritmo predeterminado
         self.selected_algorithm = 'pygame'
 
     def _setup_buttons(self):
-        button_width = self.rect.width - 10  # Un poco de margen
+        """Configura los botones de algoritmos en el panel."""
+        button_width = self.rect.width - 10
         button_height = 30
         y_offset = 10
 
@@ -301,7 +384,7 @@ class AlgorithmCirclePanel(Panel):
             center=(self.rect.x + self.rect.width // 2, self.rect.y + y_offset)
         )
         
-        y_offset += 30  # Espacio para el título
+        y_offset += 30
 
         algorithms = [
             ('pygame', 'Pygame'),
@@ -309,41 +392,60 @@ class AlgorithmCirclePanel(Panel):
         ]
 
         for i, (algo_id, algo_name) in enumerate(algorithms):
-            button = Button(self.rect.x + 5,  # 5px de margen
+            button = Button(self.rect.x + 5,
                             self.rect.y + y_offset + i * (button_height + 5),
                             button_width, button_height,
                             color=LIGHT_GRAY,
                             action=algo_id,
                             text=algo_name)
             if algo_id == 'pygame':
-                button.is_selected = True  # Pygame seleccionado por defecto
+                button.is_selected = True
             self.buttons.append(button)
 
     def draw(self, surface):
+        """
+        Dibuja el panel, sus botones y el título.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el panel
+        """
         super().draw(surface)
-        # Dibujar el título
         surface.blit(self.title_surf, self.title_rect)
 
     def handle_event(self, event):
+        """
+        Procesa eventos y actualiza el algoritmo seleccionado.
+        
+        Args:
+            event: Evento pygame a procesar
+            
+        Returns:
+            Identificador del algoritmo seleccionado o None
+        """
         action = super().handle_event(event)
         if action in ['pygame', 'bresenham']:
             self.selected_algorithm = action
-            # Actualizar botones seleccionados
             for btn in self.buttons:
                 btn.is_selected = (btn.action == action)
             return action
         return None
 
-# --- Panel para seleccionar lados del polígono ---
 class PolygonSidesPanel(Panel):
+    """
+    Panel para seleccionar el número de lados del polígono.
+    
+    Attributes:
+        selected_sides: Número de lados seleccionado
+        title_surf, title_rect: Superficie y posición del título del panel
+    """
     def __init__(self, x, y, width, height, color):
         super().__init__(x, y, width, height, color)
         self._setup_buttons()
-        # Inicialmente seleccionar 5 lados
         self.selected_sides = 5
         
     def _setup_buttons(self):
-        button_width = self.rect.width - 10  # Un poco de margen
+        """Configura los botones de selección de lados en el panel."""
+        button_width = self.rect.width - 10
         button_height = 30
         y_offset = 10
         
@@ -355,7 +457,7 @@ class PolygonSidesPanel(Panel):
             center=(self.rect.x + self.rect.width // 2, self.rect.y + y_offset)
         )
         
-        y_offset += 30  # Espacio para el título
+        y_offset += 30
         
         # Opciones de lados
         sides_options = [
@@ -367,27 +469,40 @@ class PolygonSidesPanel(Panel):
         ]
         
         for i, (sides, text) in enumerate(sides_options):
-            button = Button(self.rect.x + 5,  # 5px de margen
+            button = Button(self.rect.x + 5,
                             self.rect.y + y_offset + i * (button_height + 5),
                             button_width, button_height,
                             color=LIGHT_GRAY,
-                            action=str(sides),  # Convertir a string para consistencia
+                            action=str(sides),
                             text=text)
-            if sides == 5:  # 5 lados seleccionado por defecto
+            if sides == 5:
                 button.is_selected = True
             self.buttons.append(button)
     
     def draw(self, surface):
+        """
+        Dibuja el panel, sus botones y el título.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el panel
+        """
         super().draw(surface)
-        # Dibujar el título
         surface.blit(self.title_surf, self.title_rect)
         
     def handle_event(self, event):
+        """
+        Procesa eventos y actualiza el número de lados seleccionado.
+        
+        Args:
+            event: Evento pygame a procesar
+            
+        Returns:
+            Número de lados seleccionado o None
+        """
         action = super().handle_event(event)
         if action and action.isdigit():
             sides = int(action)
             self.selected_sides = sides
-            # Actualizar botones seleccionados
             for btn in self.buttons:
                 btn.is_selected = (btn.action == action)
             return sides

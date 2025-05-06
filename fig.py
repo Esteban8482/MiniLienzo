@@ -1,171 +1,115 @@
+"""
+Módulo de figuras para el graficador interactivo
+-----------------------------------------------
+Implementa las clases para dibujar diferentes figuras geométricas usando
+algoritmos clásicos de gráficos por computadora (DDA, Bresenham, etc.).
+Cada figura hereda de la clase base Shape y proporciona su propia implementación
+del método draw().
+"""
 import pygame
 import math
 
-# Este archivo contendrá las funciones de dibujo.
-# Inicialmente, usarán pygame.draw, pero luego se reemplazarán
-# con implementaciones propias (DDA, Bresenham, etc.)
-
-# --- Funciones de Dibujo (Placeholders usando pygame.draw) ---
-
-def draw_line(surface, color, start_pos, end_pos, width=1):
-    """Dibuja una línea usando pygame.draw.line."""
-    pygame.draw.line(surface, color, start_pos, end_pos, width)
-
-def draw_rectangle(surface, color, rect, width=1):
-    """Dibuja un rectángulo usando pygame.draw.rect."""
-    # Asegurarse de que el ancho y alto no sean negativos
-    # Pygame puede manejarlo, pero es buena práctica normalizar
-    normalized_rect = pygame.Rect(rect)
-    normalized_rect.normalize()
-    pygame.draw.rect(surface, color, normalized_rect, width)
-
-def draw_circle(surface, color, center, radius, width=1):
-    """Dibuja un círculo usando pygame.draw.circle."""
-    if radius < width: radius = width # Evitar error si el radio es muy pequeño
-    pygame.draw.circle(surface, color, center, int(radius), width)
-
-def draw_ellipse(surface, color, rect, width=1):
-    """Dibuja una elipse usando pygame.draw.ellipse."""
-    normalized_rect = pygame.Rect(rect)
-    normalized_rect.normalize()
-    # pygame.draw.ellipse necesita ancho > 0
-    if normalized_rect.width < 1 or normalized_rect.height < 1:
-        return # No dibujar si es demasiado pequeño
-    pygame.draw.ellipse(surface, color, normalized_rect, width)
-
-def draw_triangle(surface, color, points, width=1):
-    """Dibuja un triángulo usando pygame.draw.polygon."""
-    if len(points) == 3:
-        pygame.draw.polygon(surface, color, points, width)
-
-def draw_polygon(surface, color, points, width=1):
-    """Dibuja un polígono usando pygame.draw.polygon."""
-    if len(points) > 2:
-        pygame.draw.polygon(surface, color, points, width)
-
-def draw_bezier_curve(surface, color, control_points, width=1, steps=20):
-    """Dibuja una curva de Bézier cúbica (aproximada con líneas)."""
-    if len(control_points) != 4:
-        return # Necesita 4 puntos de control
-
-    points = []
-    for i in range(steps + 1):
-        t = i / steps
-        x = ( (1 - t) ** 3 * control_points[0][0] +
-              3 * (1 - t) ** 2 * t * control_points[1][0] +
-              3 * (1 - t) * t ** 2 * control_points[2][0] +
-              t ** 3 * control_points[3][0] )
-        y = ( (1 - t) ** 3 * control_points[0][1] +
-              3 * (1 - t) ** 2 * t * control_points[1][1] +
-              3 * (1 - t) * t ** 2 * control_points[2][1] +
-              t ** 3 * control_points[3][1] )
-        points.append((int(x), int(y)))
-
-    if len(points) > 1:
-        pygame.draw.lines(surface, color, False, points, width)
-
-# --- Funciones de utilidad (ej. para calcular rect desde puntos) ---
-def get_rect_from_points(p1, p2):
-    """Calcula un pygame.Rect a partir de dos puntos (esquinas opuestas)."""
-    x = min(p1[0], p2[0])
-    y = min(p1[1], p2[1])
-    width = abs(p1[0] - p2[0])
-    height = abs(p1[1] - p2[1])
-    return pygame.Rect(x, y, width, height)
-
-def get_circle_params_from_points(p1, p2):
-    """Calcula centro y radio a partir de dos puntos (centro y borde, o diámetro)."""
-    # Asumiremos p1=centro, p2=punto en borde por simplicidad ahora
-    center = p1
-    radius = math.dist(p1, p2)
-    return center, radius
-
-# --- Colores (por si se necesitan aquí, aunque vienen de main) ---
-BLACK = (0, 0, 0)
-
 # --- Clase Base para Figuras ---
 class Shape:
-    def __init__(self, color, width=1):
+    """
+    Clase base abstracta para todas las figuras.
+    
+    Attributes:
+        color: Tupla RGB representando el color de la figura
+        filled: Boolean indicando si la figura debe dibujarse rellena o solo el contorno
+    """
+    def __init__(self, color, filled=False):
         self.color = color
-        self.width = width
-
+        self.filled = filled
+    
     def draw(self, surface):
-        """Método abstracto que debe ser implementado por las subclases."""
+        """
+        Método abstracto que debe ser implementado por las subclases.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará la figura
+        """
         raise NotImplementedError("Cada figura debe implementar su propio método draw.")
 
-# --- Clases Concretas para Cada Figura ---
-
+# --- Clases herederas, concretas para Cada Figura ---
 class Line(Shape):
-    def __init__(self, start_pos, end_pos, color, width=1, algorithm='pygame'):
-        super().__init__(color, width)
+    """
+    Representa una línea entre dos puntos.
+    Permite seleccionar entre varios algoritmos de rasterización.
+    
+    Attributes:
+        start_pos: Punto inicial (x, y)
+        end_pos: Punto final (x, y)
+        algorithm: Algoritmo a usar ('pygame', 'dda', 'bresenham')
+    """
+    def __init__(self, start_pos, end_pos, color, filled=False, algorithm='pygame'):
+        super().__init__(color, filled)
         self.start_pos = start_pos
         self.end_pos = end_pos
-        self.algorithm = algorithm  # 'pygame', 'dda' o 'bresenham'
+        self.algorithm = algorithm
 
     def draw(self, surface):
-        """Dibuja la línea usando el algoritmo seleccionado."""
+        """
+        Dibuja la línea usando el algoritmo seleccionado.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará la línea
+        """
         if self.algorithm == 'dda':
             self._draw_dda(surface)
         elif self.algorithm == 'bresenham':
             self._draw_bresenham(surface)
         else:  # Por defecto o si se especifica 'pygame'
-            pygame.draw.line(surface, self.color, self.start_pos, self.end_pos, self.width)
+            pygame.draw.line(surface, self.color, self.start_pos, self.end_pos, 1)
             
     def _draw_dda(self, surface):
-        """Implementación del algoritmo DDA (Digital Differential Analyzer)."""
+        """
+        Implementa el algoritmo DDA (Digital Differential Analyzer) para dibujar líneas.
+        Es un algoritmo de rasterización de líneas que trabaja con punto flotante.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará la línea
+        """
         x1, y1 = self.start_pos
         x2, y2 = self.end_pos
         
-        # Calcular diferencias y número de pasos
         dx = x2 - x1
         dy = y2 - y1
         steps = max(abs(dx), abs(dy))
         
-        # Si no hay pasos, dibujar un punto
         if steps == 0:
-            if self.width <= 1:
-                surface.set_at((int(x1), int(y1)), self.color)
-            else:
-                pygame.draw.circle(surface, self.color, (int(x1), int(y1)), self.width // 2)
+            surface.set_at((int(x1), int(y1)), self.color)
             return
             
-        # Calcular incrementos por paso
         x_increment = dx / steps
         y_increment = dy / steps
         
-        # Dibujar píxeles
         x, y = x1, y1
         
-        # Dibujar línea con grosor
-        if self.width <= 1:
-            # Dibujar píxel a píxel para width=1
-            for _ in range(int(steps) + 1):
-                surface.set_at((int(round(x)), int(round(y))), self.color)
-                x += x_increment
-                y += y_increment
-        else:
-            # Para grosores > 1, dibujar círculos en cada punto
-            for _ in range(int(steps) + 1):
-                pygame.draw.circle(surface, self.color, (int(round(x)), int(round(y))), self.width // 2)
-                x += x_increment
-                y += y_increment
+        for _ in range(int(steps) + 1):
+            surface.set_at((int(round(x)), int(round(y))), self.color)
+            x += x_increment
+            y += y_increment
     
     def _draw_bresenham(self, surface):
-        """Implementación del algoritmo de Bresenham."""
+        """
+        Implementa el algoritmo de Bresenham para dibujar líneas.
+        Es un algoritmo de rasterización que solo utiliza aritmética de enteros.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará la línea
+        """
         x1, y1 = self.start_pos
         x2, y2 = self.end_pos
         
-        # Convertir a enteros
         x1, y1 = int(x1), int(y1)
         x2, y2 = int(x2), int(y2)
         
-        # Calcular diferencias y sentido del movimiento
         dx = abs(x2 - x1)
         dy = abs(y2 - y1)
         sx = 1 if x1 < x2 else -1
         sy = 1 if y1 < y2 else -1
         
-        # Intercambiar si la pendiente es mayor a 1
         steep = dy > dx
         if steep:
             x1, y1 = y1, x1
@@ -173,16 +117,12 @@ class Line(Shape):
             dx, dy = dy, dx
             sx, sy = sy, sx
         
-        # Inicializar variables de error
         error = dx // 2
         y = y1
         
-        # Lista para almacenar puntos calculados
         points = []
         
-        # Calcular puntos de la línea
         for x in range(x1, x2 + sx, sx):
-            # Si se ha intercambiado, revertir las coordenadas
             if steep:
                 points.append((y, x))
             else:
@@ -193,102 +133,135 @@ class Line(Shape):
                 y += sy
                 error += dx
         
-        # Dibujar puntos
-        if self.width <= 1:
-            # Dibujar píxel a píxel
-            for point in points:
-                surface.set_at(point, self.color)
-        else:
-            # Dibujar círculos para grosores > 1
-            for point in points:
-                pygame.draw.circle(surface, self.color, point, self.width // 2)
+        for point in points:
+            surface.set_at(point, self.color)
                 
     @staticmethod
-    def from_points(p1, p2, color, width=1, algorithm='pygame'):
-        """Constructor alternativo desde dos puntos, incluyendo el algoritmo."""
-        return Line(p1, p2, color, width, algorithm)
+    def from_points(p1, p2, color, filled=False, algorithm='pygame'):
+        """
+        Constructor alternativo desde dos puntos.
+        
+        Args:
+            p1: Punto inicial (x, y)
+            p2: Punto final (x, y)
+            color: Color de la línea
+            filled: No se utiliza para líneas
+            algorithm: Algoritmo de dibujo a utilizar
+            
+        Returns:
+            Instancia de Line configurada
+        """
+        return Line(p1, p2, color, filled, algorithm)
 
 class Rectangle(Shape):
-    def __init__(self, rect, color, width=1):
-        super().__init__(color, width)
-        # Normalizar el rect para asegurar ancho/alto positivos
+    """
+    Representa un rectángulo definido por su posición, ancho y alto.
+    
+    Attributes:
+        rect: Objeto pygame.Rect que define la posición y dimensiones
+    """
+    def __init__(self, rect, color, filled=False):
+        super().__init__(color, filled)
         self.rect = pygame.Rect(rect)
         self.rect.normalize()
 
     def draw(self, surface):
-        """Dibuja el rectángulo usando pygame.draw.rect."""
-        pygame.draw.rect(surface, self.color, self.rect, self.width)
+        """
+        Dibuja el rectángulo usando líneas con el algoritmo de Bresenham.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el rectángulo
+        """
+        x, y, w, h = self.rect.x, self.rect.y, self.rect.width, self.rect.height
+        
+        if self.filled:
+            for row in range(y, y + h):
+                line = Line((x, row), (x + w - 1, row), self.color, False, 'bresenham')
+                line.draw(surface)
+        else:
+            top_line = Line((x, y), (x + w - 1, y), self.color, False, 'bresenham')
+            right_line = Line((x + w - 1, y), (x + w - 1, y + h - 1), self.color, False, 'bresenham')
+            bottom_line = Line((x, y + h - 1), (x + w - 1, y + h - 1), self.color, False, 'bresenham')
+            left_line = Line((x, y), (x, y + h - 1), self.color, False, 'bresenham')
+            
+            top_line.draw(surface)
+            right_line.draw(surface)
+            bottom_line.draw(surface)
+            left_line.draw(surface)
 
     @staticmethod
-    def from_points(p1, p2, color, width=1):
-        """Constructor alternativo desde dos puntos."""
+    def from_points(p1, p2, color, filled=False):
+        """
+        Constructor alternativo desde dos puntos (esquinas opuestas).
+        
+        Args:
+            p1: Primera esquina (x, y)
+            p2: Esquina opuesta (x, y)
+            color: Color del rectángulo
+            filled: Si es True, se rellena el rectángulo
+            
+        Returns:
+            Instancia de Rectangle configurada
+        """
         x = min(p1[0], p2[0])
         y = min(p1[1], p2[1])
         w = abs(p1[0] - p2[0])
         h = abs(p1[1] - p2[1])
-        return Rectangle(pygame.Rect(x, y, w, h), color, width)
+        return Rectangle(pygame.Rect(x, y, w, h), color, filled)
 
 class Circle(Shape):
-    def __init__(self, center, radius, color, width=1, algorithm='pygame'):
-        super().__init__(color, width)
+    """
+    Representa un círculo definido por su centro y radio.
+    
+    Attributes:
+        center: Punto central (x, y)
+        radius: Radio del círculo
+        algorithm: Algoritmo a usar ('pygame', 'bresenham')
+    """
+    def __init__(self, center, radius, color, filled=False, algorithm='pygame'):
+        super().__init__(color, filled)
         self.center = center
-        # Asegurar radio mínimo si hay grosor
-        self.radius = max(int(radius), width)
-        self.algorithm = algorithm  # 'pygame' o 'bresenham'
+        self.radius = int(radius)
+        self.algorithm = algorithm
 
     def draw(self, surface):
-        """Dibuja el círculo usando el algoritmo seleccionado."""
+        """
+        Dibuja el círculo usando el algoritmo seleccionado.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el círculo
+        """
         if self.algorithm == 'bresenham':
             self._draw_bresenham(surface)
-        else:  # Por defecto o si se especifica 'pygame'
-            pygame.draw.circle(surface, self.color, self.center, self.radius, self.width)
+        else:
+            width = 0 if self.filled else 1
+            pygame.draw.circle(surface, self.color, self.center, self.radius, width)
     
     def _draw_bresenham(self, surface):
-        """Implementación del algoritmo de Bresenham para círculos."""
+        """
+        Implementa el algoritmo de Bresenham para círculos.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el círculo
+        """
         x0, y0 = int(self.center[0]), int(self.center[1])
         radius = int(self.radius)
         
-        # Si el radio es muy pequeño, simplemente dibujamos un punto
         if radius <= 0:
             surface.set_at((x0, y0), self.color)
             return
             
-        # Inicializar valores
         x = 0
         y = radius
         d = 3 - 2 * radius
         
-        # Función para dibujar píxeles en los 8 octantes
-        def draw_circle_points(cx, cy, x, y):
-            # Si el ancho es 1, dibujamos píxeles individuales
-            if self.width == 1:
-                surface.set_at((cx + x, cy + y), self.color)
-                surface.set_at((cx + y, cy + x), self.color)
-                surface.set_at((cx + y, cy - x), self.color)
-                surface.set_at((cx + x, cy - y), self.color)
-                surface.set_at((cx - x, cy - y), self.color)
-                surface.set_at((cx - y, cy - x), self.color)
-                surface.set_at((cx - y, cy + x), self.color)
-                surface.set_at((cx - x, cy + y), self.color)
-            else:
-                # Para grosores > 1, dibujamos pequeños círculos en cada punto
-                for dx, dy in [(cx + x, cy + y), (cx + y, cy + x), 
-                               (cx + y, cy - x), (cx + x, cy - y),
-                               (cx - x, cy - y), (cx - y, cy - x),
-                               (cx - y, cy + x), (cx - x, cy + y)]:
-                    pygame.draw.circle(surface, self.color, (dx, dy), self.width // 2)
-        
-        # Si es un círculo relleno
-        if self.width == 0:
-            # Dibujamos líneas horizontales entre los puntos
+        if self.filled:
             while x <= y:
-                # Dibujar líneas horizontales entre los puntos para rellenar
-                pygame.draw.line(surface, self.color, (x0 - x, y0 + y), (x0 + x, y0 + y))
-                pygame.draw.line(surface, self.color, (x0 - y, y0 + x), (x0 + y, y0 + x))
-                pygame.draw.line(surface, self.color, (x0 - y, y0 - x), (x0 + y, y0 - x))
-                pygame.draw.line(surface, self.color, (x0 - x, y0 - y), (x0 + x, y0 - y))
+                Line((x0 - x, y0 + y), (x0 + x, y0 + y), self.color, False, 'bresenham').draw(surface)
+                Line((x0 - y, y0 + x), (x0 + y, y0 + x), self.color, False, 'bresenham').draw(surface)
+                Line((x0 - y, y0 - x), (x0 + y, y0 - x), self.color, False, 'bresenham').draw(surface)
+                Line((x0 - x, y0 - y), (x0 + x, y0 - y), self.color, False, 'bresenham').draw(surface)
                 
-                # Actualizar valores usando el algoritmo de Bresenham
                 if d < 0:
                     d = d + 4 * x + 6
                 else:
@@ -296,11 +269,17 @@ class Circle(Shape):
                     y -= 1
                 x += 1
         else:
-            # Algoritmo de Bresenham para círculos con contorno
             while x <= y:
-                draw_circle_points(x0, y0, x, y)
+                # Dibujar puntos en los 8 octantes
+                surface.set_at((x0 + x, y0 + y), self.color)
+                surface.set_at((x0 + y, y0 + x), self.color)
+                surface.set_at((x0 + y, y0 - x), self.color)
+                surface.set_at((x0 + x, y0 - y), self.color)
+                surface.set_at((x0 - x, y0 - y), self.color)
+                surface.set_at((x0 - y, y0 - x), self.color)
+                surface.set_at((x0 - y, y0 + x), self.color)
+                surface.set_at((x0 - x, y0 + y), self.color)
                 
-                # Actualizar valores usando el algoritmo de Bresenham
                 if d < 0:
                     d = d + 4 * x + 6
                 else:
@@ -309,66 +288,349 @@ class Circle(Shape):
                 x += 1
 
     @staticmethod
-    def from_points(p1, p2, color, width=1, algorithm='pygame'):
-        """Constructor alternativo desde centro y punto en borde."""
+    def from_points(p1, p2, color, filled=False, algorithm='pygame'):
+        """
+        Constructor alternativo desde el centro y un punto en la circunferencia.
+        
+        Args:
+            p1: Centro del círculo (x, y)
+            p2: Punto en la circunferencia (x, y)
+            color: Color del círculo
+            filled: Si es True, se rellena el círculo
+            algorithm: Algoritmo de dibujo a utilizar
+            
+        Returns:
+            Instancia de Circle configurada
+        """
         center = p1
         radius = math.dist(p1, p2)
-        return Circle(center, radius, color, width, algorithm)
+        return Circle(center, radius, color, filled, algorithm)
 
 class Ellipse(Shape):
-    def __init__(self, rect, color, width=1):
-        super().__init__(color, width)
+    """
+    Representa una elipse definida por su rectángulo contenedor.
+    
+    Attributes:
+        rect: Objeto pygame.Rect que define la posición y dimensiones
+    """
+    def __init__(self, rect, color, filled=False):
+        super().__init__(color, filled)
         self.rect = pygame.Rect(rect)
         self.rect.normalize()
 
     def draw(self, surface):
-        """Dibuja la elipse usando pygame.draw.ellipse."""
-        # pygame.draw.ellipse necesita ancho > 0
-        if self.rect.width >= 1 and self.rect.height >= 1:
-             pygame.draw.ellipse(surface, self.color, self.rect, self.width)
+        """
+        Dibuja la elipse usando algoritmos específicos según sea contorno o relleno.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará la elipse
+        """
+        if self.rect.width < 1 or self.rect.height < 1:
+            return
+            
+        xc = self.rect.x + self.rect.width // 2
+        yc = self.rect.y + self.rect.height // 2
+        rx = self.rect.width // 2
+        ry = self.rect.height // 2
+        
+        if rx <= 0 or ry <= 0:
+            surface.set_at((xc, yc), self.color)
+            return
+            
+        if self.filled:
+            self._draw_filled(surface, xc, yc, rx, ry)
+        else:
+            self._draw_bresenham_ellipse(surface, xc, yc, rx, ry)
+    
+    def _draw_bresenham_ellipse(self, surface, xc, yc, rx, ry):
+        """
+        Implementa el algoritmo de Bresenham para elipses (contorno).
+        
+        Args:
+            surface: Superficie pygame donde se dibujará la elipse
+            xc, yc: Coordenadas del centro de la elipse
+            rx, ry: Radios de la elipse en X e Y
+        """
+        xc, yc, rx, ry = int(xc), int(yc), int(rx), int(ry)
+        
+        # Región 1
+        x, y = 0, ry
+        
+        d1 = (ry * ry) - (rx * rx * ry) + (0.25 * rx * rx)
+        dx = 2 * ry * ry * x
+        dy = 2 * rx * rx * y
+        
+        def draw_points(x, y):
+            """Dibuja 4 puntos simétricos respecto al centro"""
+            surface.set_at((xc + x, yc + y), self.color)
+            surface.set_at((xc - x, yc + y), self.color)
+            surface.set_at((xc + x, yc - y), self.color)
+            surface.set_at((xc - x, yc - y), self.color)
+        
+        # Procesamiento en la región 1
+        while dx < dy:
+            draw_points(x, y)
+            
+            if d1 < 0:
+                x += 1
+                dx += 2 * ry * ry
+                d1 += dx + ry * ry
+            else:
+                x += 1
+                y -= 1
+                dx += 2 * ry * ry
+                dy -= 2 * rx * rx
+                d1 += dx - dy + ry * ry
+        
+        # Región 2
+        d2 = ((ry * ry) * ((x + 0.5) * (x + 0.5))) + \
+             ((rx * rx) * ((y - 1) * (y - 1))) - \
+             (rx * rx * ry * ry)
+        
+        # Procesamiento en la región 2
+        while y >= 0:
+            draw_points(x, y)
+            
+            if d2 > 0:
+                y -= 1
+                dy -= 2 * rx * rx
+                d2 += rx * rx - dy
+            else:
+                y -= 1
+                x += 1
+                dx += 2 * ry * ry
+                dy -= 2 * rx * rx
+                d2 += dx - dy + rx * rx
+    
+    def _draw_filled(self, surface, xc, yc, rx, ry):
+        """
+        Dibuja una elipse rellena usando líneas horizontales.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará la elipse
+            xc, yc: Coordenadas del centro de la elipse
+            rx, ry: Radios de la elipse en X e Y
+        """
+        for y in range(yc - ry, yc + ry + 1):
+            if ry == 0:
+                continue
+                
+            dy = y - yc
+            dy_squared = dy * dy
+            term = (1.0 - dy_squared / (ry * ry)) * (rx * rx)
+            
+            if term < 0:
+                continue
+                
+            dx = int(math.sqrt(term))
+            
+            start_x = xc - dx
+            end_x = xc + dx
+            line = Line((start_x, y), (end_x, y), self.color, False, 'bresenham')
+            line.draw(surface)
 
     @staticmethod
-    def from_points(p1, p2, color, width=1):
-        """Constructor alternativo desde dos puntos."""
+    def from_points(p1, p2, color, filled=False):
+        """
+        Constructor alternativo desde dos puntos (esquinas opuestas del rectángulo contenedor).
+        
+        Args:
+            p1: Primera esquina (x, y)
+            p2: Esquina opuesta (x, y)
+            color: Color de la elipse
+            filled: Si es True, se rellena la elipse
+            
+        Returns:
+            Instancia de Ellipse configurada
+        """
         x = min(p1[0], p2[0])
         y = min(p1[1], p2[1])
         w = abs(p1[0] - p2[0])
         h = abs(p1[1] - p2[1])
-        return Ellipse(pygame.Rect(x, y, w, h), color, width)
+        return Ellipse(pygame.Rect(x, y, w, h), color, filled)
 
 class Triangle(Shape):
-    def __init__(self, points, color, width=1):
-        super().__init__(color, width)
+    """
+    Representa un triángulo definido por tres puntos.
+    
+    Attributes:
+        points: Lista de tres puntos (x, y) que definen los vértices
+    """
+    def __init__(self, points, color, filled=False):
+        super().__init__(color, filled)
         if len(points) != 3:
             raise ValueError("Triangle requiere exactamente 3 puntos.")
         self.points = points
 
     def draw(self, surface):
-        """Dibuja el triángulo usando pygame.draw.polygon."""
-        pygame.draw.polygon(surface, self.color, self.points, self.width)
+        """
+        Dibuja el triángulo como contorno o relleno según corresponda.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el triángulo
+        """
+        if self.filled:
+            self._draw_filled(surface)
+        else:
+            for i in range(3):
+                start_point = self.points[i]
+                end_point = self.points[(i + 1) % 3]
+                line = Line(start_point, end_point, self.color, False, 'bresenham')
+                line.draw(surface)
+    
+    def _draw_filled(self, surface):
+        """
+        Implementa el algoritmo de relleno por escaneo de líneas para triángulos.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el triángulo
+        """
+        sorted_points = sorted(self.points, key=lambda p: p[1])
+        
+        x1, y1 = sorted_points[0]
+        x2, y2 = sorted_points[1]
+        x3, y3 = sorted_points[2]
+        
+        if x1 == x2 == x3:
+            for y in range(int(y1), int(y3) + 1):
+                surface.set_at((int(x1), y), self.color)
+            return
+            
+        # Calcular pendientes de los lados
+        # Para evitar división por cero al calcular pendientes
+        slope_1_3 = (x3 - x1) / (y3 - y1) if y3 != y1 else 0
+        slope_1_2 = (x2 - x1) / (y2 - y1) if y2 != y1 else 0
+        slope_2_3 = (x3 - x2) / (y3 - y2) if y3 != y2 else 0
+        
+        # Escanear la parte superior del triángulo
+        x_left = x_right = x1
+        
+        # Escanear desde el punto superior hasta el medio
+        for y in range(int(y1), int(y2) + 1):
+            # Calcular intersecciones con el scanline
+            if y2 != y1:
+                x_right = x1 + (y - y1) * slope_1_2
+            if y3 != y1:
+                x_left = x1 + (y - y1) * slope_1_3
+                
+            # Asegurar que x_left <= x_right
+            if x_left > x_right:
+                x_left, x_right = x_right, x_left
+                
+            # Dibujar línea horizontal entre intersecciones
+            line = Line((int(x_left), y), (int(x_right), y), self.color, False, 'bresenham')
+            line.draw(surface)
+        
+        # Escanear la parte inferior del triángulo
+        # Reiniciar x_left o x_right dependiendo de qué lado cambia en el punto medio
+        if y3 != y2:
+            if x2 < x3:
+                x_left = x2
+            else:
+                x_right = x2
+                
+        # Escanear desde el punto medio hasta el inferior
+        for y in range(int(y2) + 1, int(y3) + 1):
+            # Calcular intersecciones con el scanline
+            if y3 != y1:
+                x_left = x1 + (y - y1) * slope_1_3
+            if y3 != y2:
+                x_right = x2 + (y - y2) * slope_2_3
+                
+            # Asegurar que x_left <= x_right
+            if x_left > x_right:
+                x_left, x_right = x_right, x_left
+                
+            # Dibujar línea horizontal entre intersecciones
+            line = Line((int(x_left), y), (int(x_right), y), self.color, False, 'bresenham')
+            line.draw(surface)
 
 class Polygon(Shape):
-    def __init__(self, points, color, width=1):
-        super().__init__(color, width)
+    """
+    Representa un polígono definido por n puntos.
+    
+    Attributes:
+        points: Lista de puntos (x, y) que definen los vértices
+    """
+    def __init__(self, points, color, filled=False):
+        super().__init__(color, filled)
         if len(points) < 3:
             raise ValueError("Polygon requiere al menos 3 puntos.")
         self.points = points
 
     def draw(self, surface):
-        """Dibuja el polígono usando pygame.draw.polygon."""
-        pygame.draw.polygon(surface, self.color, self.points, self.width)
+        """
+        Dibuja el polígono como contorno o relleno según corresponda.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el polígono
+        """
+        if self.filled:
+            self._draw_filled(surface)
+        else:
+            num_points = len(self.points)
+            for i in range(num_points):
+                start_point = self.points[i]
+                end_point = self.points[(i + 1) % num_points]
+                line = Line(start_point, end_point, self.color, False, 'bresenham')
+                line.draw(surface)
+    
+    def _draw_filled(self, surface):
+        """
+        Implementa el algoritmo de relleno por escaneo de líneas para polígonos.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará el polígono
+        """
+        min_y = min(p[1] for p in self.points)
+        max_y = max(p[1] for p in self.points)
+        
+        for y in range(int(min_y), int(max_y) + 1):
+            intersections = []
+            num_points = len(self.points)
+            
+            for i in range(num_points):
+                p1 = self.points[i]
+                p2 = self.points[(i + 1) % num_points]
+                
+                if (p1[1] <= y < p2[1]) or (p2[1] <= y < p1[1]):
+                    if p1[1] == p2[1]:
+                        continue
+                    
+                    x = p1[0] + (y - p1[1]) * (p2[0] - p1[0]) / (p2[1] - p1[1])
+                    intersections.append(int(x))
+            
+            intersections.sort()
+            
+            for i in range(0, len(intersections), 2):
+                if i + 1 < len(intersections):
+                    start_x = intersections[i]
+                    end_x = intersections[i + 1]
+                    line = Line((start_x, y), (end_x, y), self.color, False, 'bresenham')
+                    line.draw(surface)
 
 class BezierCurve(Shape):
-    def __init__(self, control_points, color, width=1, steps=20):
-        super().__init__(color, width)
+    """
+    Representa una curva de Bézier cúbica definida por 4 puntos de control.
+    
+    Attributes:
+        control_points: Lista de 4 puntos de control (x, y)
+        steps: Número de segmentos para aproximar la curva
+        points: Lista de puntos calculados que componen la curva
+    """
+    def __init__(self, control_points, color, filled=False, steps=20):
+        super().__init__(color, filled)
         if len(control_points) != 4:
             raise ValueError("BezierCurve requiere exactamente 4 puntos de control.")
         self.control_points = control_points
         self.steps = steps
-        self._calculate_points() # Calcular los puntos de la línea al crear
+        self._calculate_points()
 
     def _calculate_points(self):
-        """Calcula los puntos de la línea que aproximan la curva."""
+        """
+        Calcula los puntos de la línea que aproximan la curva usando
+        la ecuación paramétrica de la curva de Bézier cúbica.
+        """
         self.points = []
         cp = self.control_points
         for i in range(self.steps + 1):
@@ -385,6 +647,15 @@ class BezierCurve(Shape):
             self.points.append((int(x), int(y)))
 
     def draw(self, surface):
-        """Dibuja la curva (aproximada) usando pygame.draw.lines."""
-        if len(self.points) > 1:
-            pygame.draw.lines(surface, self.color, False, self.points, self.width)
+        """
+        Dibuja la curva de Bézier conectando los puntos calculados con líneas.
+        
+        Args:
+            surface: Superficie pygame donde se dibujará la curva
+        """
+        if len(self.points) < 2:
+            return
+            
+        for i in range(len(self.points) - 1):
+            line = Line(self.points[i], self.points[i+1], self.color, False, 'bresenham')
+            line.draw(surface)
