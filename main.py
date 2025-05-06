@@ -11,8 +11,8 @@ SCREEN_WIDTH = 800  # Ancho total de la ventana
 SCREEN_HEIGHT = 600 # Alto total de la ventana
 LEFT_PANEL_WIDTH = 60 # Ancho del panel de herramientas
 RIGHT_PANEL_WIDTH = 60 # Ancho del panel de colores
+ALGORITHM_PANEL_HEIGHT = 120 # Altura del panel de algoritmos
 CANVAS_WIDTH = SCREEN_WIDTH - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH
-CANVAS_HEIGHT = SCREEN_HEIGHT
 
 # Colores (podrían moverse a un archivo de configuración o a ui.py si se prefieren centralizados)
 WHITE = (255, 255, 255)
@@ -29,31 +29,46 @@ ORANGE = (255, 165, 0)
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Graficador Interactivo")
 
-# --- Superficies ---
-# Superficie para el lienzo (área central)
-canvas_surface = pygame.Surface((CANVAS_WIDTH, CANVAS_HEIGHT))
-canvas_surface.fill(WHITE) # Lienzo blanco inicial
-
-# Superficie temporal para previsualización (mismo tamaño que el lienzo)
-preview_surface = pygame.Surface((CANVAS_WIDTH, CANVAS_HEIGHT), pygame.SRCALPHA) # SRCALPHA para transparencia
+# --- Función para crear/recrear superficies ---
+def create_canvas_surfaces(show_algorithm_panel):
+    # Calcular altura del canvas según si se muestra el panel de algoritmos
+    canvas_height = SCREEN_HEIGHT - (ALGORITHM_PANEL_HEIGHT if show_algorithm_panel else 0)
+    
+    # Crear superficies con la altura adecuada
+    canvas_surf = pygame.Surface((CANVAS_WIDTH, canvas_height))
+    canvas_surf.fill(WHITE) # Lienzo blanco inicial
+    
+    preview_surf = pygame.Surface((CANVAS_WIDTH, canvas_height), pygame.SRCALPHA) # SRCALPHA para transparencia
+    
+    return canvas_surf, preview_surf, canvas_height
 
 # --- Crear instancias de los paneles de UI ---
 # Asumiendo que ui.py define ToolPanel y ColorPanel
 tool_panel = ui.ToolPanel(0, 0, LEFT_PANEL_WIDTH, SCREEN_HEIGHT, LIGHT_GRAY)
 color_panel = ui.ColorPanel(SCREEN_WIDTH - RIGHT_PANEL_WIDTH, 0, RIGHT_PANEL_WIDTH, SCREEN_HEIGHT, LIGHT_GRAY)
+# Paneles para algoritmos
+algorithm_line_panel = ui.AlgorithmPanel(LEFT_PANEL_WIDTH, 0, CANVAS_WIDTH, ALGORITHM_PANEL_HEIGHT, LIGHT_GRAY)
+algorithm_circle_panel = ui.AlgorithmCirclePanel(LEFT_PANEL_WIDTH, 0, CANVAS_WIDTH, ALGORITHM_PANEL_HEIGHT, LIGHT_GRAY)
 
 # --- Estado de la aplicación ---
 selected_tool = None
 selected_color = BLACK # Color inicial por defecto
+selected_line_algorithm = 'pygame' # Algoritmo inicial por defecto para líneas
+selected_circle_algorithm = 'pygame' # Algoritmo inicial por defecto para círculos
 drawing = False
 start_pos = None
 current_mouse_pos = None # Posición actual relativa al canvas
+show_algorithm_panel = False # Inicialmente oculto
+current_algorithm_panel = None # Panel de algoritmos actualmente visible
 
 # Para figuras de múltiples puntos (a implementar)
 points = []
 
 # Lista para almacenar las figuras dibujadas permanentemente
 drawn_shapes = []
+
+# --- Superficies iniciales ---
+canvas_surface, preview_surface, CANVAS_HEIGHT = create_canvas_surfaces(show_algorithm_panel)
 
 # --- Bucle principal ---
 running = True
@@ -67,10 +82,14 @@ while running:
 
     # Calcular posición relativa al canvas si el ratón está sobre él
     is_mouse_on_canvas = False
+    
+    # Ajustar la detección según si el panel de algoritmos está visible
+    panel_height_offset = ALGORITHM_PANEL_HEIGHT if show_algorithm_panel else 0
+    
     if LEFT_PANEL_WIDTH <= mouse_pos_screen[0] < SCREEN_WIDTH - RIGHT_PANEL_WIDTH and \
-       0 <= mouse_pos_screen[1] < SCREEN_HEIGHT:
+       panel_height_offset <= mouse_pos_screen[1] < SCREEN_HEIGHT:
         is_mouse_on_canvas = True
-        current_mouse_pos = (mouse_pos_screen[0] - LEFT_PANEL_WIDTH, mouse_pos_screen[1])
+        current_mouse_pos = (mouse_pos_screen[0] - LEFT_PANEL_WIDTH, mouse_pos_screen[1] - panel_height_offset)
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -88,12 +107,43 @@ while running:
                 points = [] # Resetear puntos al cambiar de herramienta
                 drawing = False # Cancelar cualquier dibujo en progreso
                 start_pos = None
+                
+                # Determinar qué panel de algoritmos mostrar según la herramienta
+                new_show_algorithm_panel = False
+                new_algorithm_panel = None
+                
+                if selected_tool == 'line':
+                    new_show_algorithm_panel = True
+                    new_algorithm_panel = 'line'
+                elif selected_tool == 'circle':
+                    new_show_algorithm_panel = True
+                    new_algorithm_panel = 'circle'
+                
+                # Recrear superficies si cambió la visibilidad
+                if new_show_algorithm_panel != show_algorithm_panel or current_algorithm_panel != new_algorithm_panel:
+                    show_algorithm_panel = new_show_algorithm_panel
+                    current_algorithm_panel = new_algorithm_panel
+                    canvas_surface, preview_surface, CANVAS_HEIGHT = create_canvas_surfaces(show_algorithm_panel)
+                
                 print(f"Herramienta seleccionada: {selected_tool}") # Para depuración
 
         color_action = color_panel.handle_event(event)
         if color_action:
             selected_color = color_action
             print(f"Color seleccionado: {selected_color}") # Para depuración
+            
+        # Manejar eventos de los paneles de algoritmos
+        if show_algorithm_panel:
+            if current_algorithm_panel == 'line':
+                algorithm_action = algorithm_line_panel.handle_event(event)
+                if algorithm_action:
+                    selected_line_algorithm = algorithm_action
+                    print(f"Algoritmo de línea seleccionado: {selected_line_algorithm}")
+            elif current_algorithm_panel == 'circle':
+                algorithm_action = algorithm_circle_panel.handle_event(event)
+                if algorithm_action:
+                    selected_circle_algorithm = algorithm_action
+                    print(f"Algoritmo de círculo seleccionado: {selected_circle_algorithm}")
 
         # Eventos del Lienzo (Canvas)
         if is_mouse_on_canvas:
@@ -126,11 +176,11 @@ while running:
                         new_shape = None
                         # Crear la instancia de la figura apropiada
                         if selected_tool == 'line':
-                            new_shape = fig.Line(start_pos, end_pos, selected_color, width=2)
+                            new_shape = fig.Line(start_pos, end_pos, selected_color, width=2, algorithm=selected_line_algorithm)
                         elif selected_tool == 'rectangle':
                             new_shape = fig.Rectangle.from_points(start_pos, end_pos, selected_color, width=2)
                         elif selected_tool == 'circle':
-                            new_shape = fig.Circle.from_points(start_pos, end_pos, selected_color, width=2)
+                            new_shape = fig.Circle.from_points(start_pos, end_pos, selected_color, width=2, algorithm=selected_circle_algorithm)
                         elif selected_tool == 'ellipse':
                              new_shape = fig.Ellipse.from_points(start_pos, end_pos, selected_color, width=2)
 
@@ -150,11 +200,11 @@ while running:
         temp_shape = None
 
         if selected_tool == 'line':
-            temp_shape = fig.Line(start_pos, current_mouse_pos, preview_color, width=2)
+            temp_shape = fig.Line(start_pos, current_mouse_pos, preview_color, width=2, algorithm=selected_line_algorithm)
         elif selected_tool == 'rectangle':
             temp_shape = fig.Rectangle.from_points(start_pos, current_mouse_pos, preview_color, width=2)
         elif selected_tool == 'circle':
-            temp_shape = fig.Circle.from_points(start_pos, current_mouse_pos, preview_color, width=2)
+            temp_shape = fig.Circle.from_points(start_pos, current_mouse_pos, preview_color, width=2, algorithm=selected_circle_algorithm)
         elif selected_tool == 'ellipse':
              temp_shape = fig.Ellipse.from_points(start_pos, current_mouse_pos, preview_color, width=2)
 
@@ -170,14 +220,22 @@ while running:
         shape.draw(canvas_surface)
 
     # 3. Dibujar el canvas actualizado en la pantalla
-    screen.blit(canvas_surface, (LEFT_PANEL_WIDTH, 0))
+    panel_height_offset = ALGORITHM_PANEL_HEIGHT if show_algorithm_panel else 0
+    screen.blit(canvas_surface, (LEFT_PANEL_WIDTH, panel_height_offset))
 
     # 4. Dibujar la previsualización sobre el canvas
-    screen.blit(preview_surface, (LEFT_PANEL_WIDTH, 0))
+    screen.blit(preview_surface, (LEFT_PANEL_WIDTH, panel_height_offset))
 
     # 5. Dibujar los paneles de UI encima de todo
     tool_panel.draw(screen)
     color_panel.draw(screen)
+    
+    # Solo dibujar el panel de algoritmos correspondiente si está visible
+    if show_algorithm_panel:
+        if current_algorithm_panel == 'line':
+            algorithm_line_panel.draw(screen)
+        elif current_algorithm_panel == 'circle':
+            algorithm_circle_panel.draw(screen)
 
     # --- Actualizar la pantalla ---
     pygame.display.flip()

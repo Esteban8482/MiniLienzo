@@ -197,3 +197,112 @@ class ColorPanel(Panel):
                  btn.is_selected = (btn.action == action)
              return self.color_map[action] # Devolver el color RGB
         return None
+
+# --- Panel de Algoritmos de Línea ---
+class AlgorithmPanel(Panel):
+    def __init__(self, x, y, width, height, color):
+        super().__init__(x, y, width, height, color)
+        self._setup_buttons()
+        # Inicialmente seleccionar pygame como algoritmo predeterminado
+        self.selected_algorithm = 'pygame'
+
+    def _setup_buttons(self):
+        button_width = self.rect.width - 10  # Un poco de margen
+        button_height = 30
+        y_offset = 10
+
+        # Título del panel
+        pygame.font.init()
+        self.font = pygame.font.SysFont(None, 24)
+        self.title_surf = self.font.render("Algoritmos de Línea", True, BLACK)
+        self.title_rect = self.title_surf.get_rect(
+            center=(self.rect.x + self.rect.width // 2, self.rect.y + y_offset)
+        )
+        
+        y_offset += 30  # Espacio para el título
+
+        algorithms = [
+            ('pygame', 'Pygame'),
+            ('dda', 'DDA'),
+            ('bresenham', 'Bresenham')
+        ]
+
+        for i, (algo_id, algo_name) in enumerate(algorithms):
+            button = Button(self.rect.x + 5,  # 5px de margen
+                            self.rect.y + y_offset + i * (button_height + 5),
+                            button_width, button_height,
+                            color=LIGHT_GRAY,
+                            action=algo_id,
+                            text=algo_name)
+            if algo_id == 'pygame':
+                button.is_selected = True  # Pygame seleccionado por defecto
+            self.buttons.append(button)
+            
+    def draw(self, surface):
+        super().draw(surface)
+        # Dibujar el título
+        surface.blit(self.title_surf, self.title_rect)
+
+    def handle_event(self, event):
+        action = super().handle_event(event)
+        if action in ['pygame', 'dda', 'bresenham']:
+            self.selected_algorithm = action
+            # Actualizar botones seleccionados
+            for btn in self.buttons:
+                btn.is_selected = (btn.action == action)
+            return action
+        return None
+
+# --- Panel de Algoritmos de Círculo ---
+class AlgorithmCirclePanel(Panel):
+    def __init__(self, x, y, width, height, color):
+        super().__init__(x, y, width, height, color)
+        self._setup_buttons()
+        # Inicialmente seleccionar pygame como algoritmo predeterminado
+        self.selected_algorithm = 'pygame'
+
+    def _setup_buttons(self):
+        button_width = self.rect.width - 10  # Un poco de margen
+        button_height = 30
+        y_offset = 10
+
+        # Título del panel
+        pygame.font.init()
+        self.font = pygame.font.SysFont(None, 24)
+        self.title_surf = self.font.render("Algoritmos de Círculo", True, BLACK)
+        self.title_rect = self.title_surf.get_rect(
+            center=(self.rect.x + self.rect.width // 2, self.rect.y + y_offset)
+        )
+        
+        y_offset += 30  # Espacio para el título
+
+        algorithms = [
+            ('pygame', 'Pygame'),
+            ('bresenham', 'Bresenham')
+        ]
+
+        for i, (algo_id, algo_name) in enumerate(algorithms):
+            button = Button(self.rect.x + 5,  # 5px de margen
+                            self.rect.y + y_offset + i * (button_height + 5),
+                            button_width, button_height,
+                            color=LIGHT_GRAY,
+                            action=algo_id,
+                            text=algo_name)
+            if algo_id == 'pygame':
+                button.is_selected = True  # Pygame seleccionado por defecto
+            self.buttons.append(button)
+
+    def draw(self, surface):
+        super().draw(surface)
+        # Dibujar el título
+        surface.blit(self.title_surf, self.title_rect)
+
+    def handle_event(self, event):
+        action = super().handle_event(event)
+        if action in ['pygame', 'bresenham']:
+            self.selected_algorithm = action
+            # Actualizar botones seleccionados
+            for btn in self.buttons:
+                btn.is_selected = (btn.action == action)
+            return action
+        return None
